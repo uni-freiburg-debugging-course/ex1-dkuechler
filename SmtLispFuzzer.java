@@ -58,7 +58,6 @@ class SmtFileHandler {
         List<String> lines = new ArrayList<>();
         try (Scanner scanner = new Scanner(new File(filename), "UTF-8")) {
             while (scanner.hasNextLine()) {
-                // Read each line and add it to the list
                 lines.add(scanner.nextLine());
             }
         } catch (FileNotFoundException e) {
