@@ -49,14 +49,13 @@ class SmtLispLexer {
     }
 
     private void lex() {
-        String s = mInput;
         // Helper index to avoid incrementing i during loop
         mLookAhead = 0;
-        for (int i = 0, n = s.length(); i < n; i++) {
+        for (int i = 0, n = mInput.length(); i < n; i++) {
             if (i < mLookAhead) {
                 continue;
             }
-            char c = s.charAt(i);
+            char c = mInput.charAt(i);
             if (c == ' ' || c == '\t') {
                 continue;
             } else if (c == '+' || c == '-' || c == '*') {
