@@ -37,6 +37,7 @@ class SmtToken {
 class SmtLispLexer {
     private final String mInput;
     private final List<SmtToken> mTokens = new ArrayList<>();
+    private int mLookAhead = 0;
 
     public SmtLispLexer(String args) {
         this.mInput = args;
@@ -49,38 +50,58 @@ class SmtLispLexer {
 
     private void lex() {
         String s = mInput;
-        // to avoid incrementing i during loop
-        int lookAhead = 0;
+        // Helper index to avoid incrementing i during loop
+        mLookAhead = 0;
         for (int i = 0, n = s.length(); i < n; i++) {
-            if (i < lookAhead) {
+            if (i < mLookAhead) {
                 continue;
             }
             char c = s.charAt(i);
-            // we split input by lines during file scan, so \n doesn't indicate new formula
-            if (c == ' ' || c == '\t' || c == '\n') {
+            if (c == ' ' || c == '\t') {
                 continue;
             } else if (c == '+' || c == '-' || c == '*') {
-                mTokens.add(new SmtToken(TokenType.BINARYOPERATOR, "" + c));
+                createBinaryOperatorToken(c);
             } else if (c == '(' || c == ')') {
-                mTokens.add(new SmtToken(TokenType.PARENTHESES, "" + c));
+                createParenthesesToken(c);
             } else if (Character.isDigit(c)) {
-                StringBuilder number = new StringBuilder("" + c);
-                lookAhead = i + 1;
-                while (lookAhead < n && Character.isDigit(s.charAt(lookAhead))) {
-                    number.append(s.charAt(lookAhead));
-                    lookAhead = lookAhead + 1;
-                }
-                mTokens.add(new SmtToken(TokenType.NUMBER, number.toString()));
+                mLookAhead = i + 1;
+                createNumberToken(c);
             } else if (Character.isLetter(c)) {
-                StringBuilder keyword = new StringBuilder("" + c);
-                lookAhead = i + 1;
-                while (lookAhead < n && Character.isLetter(s.charAt(lookAhead))) {
-                    keyword.append(s.charAt(lookAhead));
-                    lookAhead = lookAhead + 1;
-                }
-                mTokens.add(new SmtToken(TokenType.UNARYKEYWORD, keyword.toString()));
+                mLookAhead = i + 1;
+                createUnaryOperatorToken(c);
             }
         }
+    }
+
+    void createBinaryOperatorToken(char c) {
+        mTokens.add(new SmtToken(TokenType.BINARYOPERATOR, "" + c));
+    }
+
+    void createParenthesesToken(char c) {
+        mTokens.add(new SmtToken(TokenType.PARENTHESES, "" + c));
+    }
+
+    // Digit detected -> keep adding next character while it's still a digit => number
+    void createNumberToken(Character c) {
+        StringBuilder number = new StringBuilder("" + c);
+        int n = mInput.length();
+        while (mLookAhead < n && Character.isDigit(mInput.charAt(mLookAhead))) {
+            number.append(mInput.charAt(mLookAhead));
+            mLookAhead++;
+        }
+        mTokens.add(new SmtToken(TokenType.NUMBER, number.toString()));
+    }
+
+    // Letter detected -> keep adding next character while it's still a letter => keyword
+    void createUnaryOperatorToken(Character c) {
+        StringBuilder keyword = new StringBuilder("" + c);
+        int n = mInput.length();
+        while (mLookAhead < n && Character.isLetter(mInput.charAt(mLookAhead))) {
+            keyword.append(mInput.charAt(mLookAhead));
+            mLookAhead++;
+        }
+        mTokens.add(new SmtToken(TokenType.UNARYKEYWORD, keyword.toString()));
+
     }
 }
 
@@ -135,14 +156,11 @@ class SmtLispParser {
     }
 
     private AbstractSyntaxNodeBinary buildTree() {
-        if (mTokens.isEmpty()) {
-            return null;
-        }
         do {
             mTokenIndex++;
         } while (mTokens.get(mTokenIndex).getType() == TokenType.PARENTHESES);
 
-        AbstractSyntaxNodeBinary node = null;
+        AbstractSyntaxNodeBinary node;
         if (mTokens.get(mTokenIndex).getType() == TokenType.BINARYOPERATOR) {
             node = new AbstractSyntaxNodeBinary(mTokens.get(mTokenIndex), buildTree(), buildTree());
         } else if (mTokens.get(mTokenIndex).getType() == TokenType.UNARYKEYWORD) {
@@ -176,20 +194,26 @@ class SmtLispEvaluator {
         if (tokenType == TokenType.UNARYKEYWORD) {
             return evaluate(node.getLeft());
         } else if (tokenType == TokenType.BINARYOPERATOR) {
-            String tokenValue = node.getToken().getValue();
-            switch (tokenValue) {
-                case "+":
-                    return evaluate(node.getLeft()) + evaluate(node.getRight());
-                case "-":
-                    return evaluate(node.getLeft()) - evaluate(node.getRight());
-                case "*":
-                    return evaluate(node.getLeft()) * evaluate(node.getRight());
-            }
+            return evaluateBinaryOperator(node);
         } else if (tokenType == TokenType.NUMBER) {
             return (Integer.parseInt(node.getToken().getValue()));
+        } else {
+            throw new UnsupportedOperationException("Unsupported token type: " + tokenType);
         }
-        // TODO: handle error
-        return Integer.MIN_VALUE;
+    }
+
+    long evaluateBinaryOperator(AbstractSyntaxNodeBinary node) {
+        String tokenValue = node.getToken().getValue();
+        switch (tokenValue) {
+            case "+":
+                return evaluate(node.getLeft()) + evaluate(node.getRight());
+            case "-":
+                return evaluate(node.getLeft()) - evaluate(node.getRight());
+            case "*":
+                return evaluate(node.getLeft()) * evaluate(node.getRight());
+            default:
+                throw new UnsupportedOperationException("Unexpected binary operator: " + tokenValue);
+        }
     }
 }
 
@@ -203,28 +227,36 @@ final class SmtSolver {
         SmtLispParser parser = new SmtLispParser(lexer.getTokens());
         SmtLispEvaluator evaluator = new SmtLispEvaluator(parser.getRoot());
         long result = evaluator.getResult();
-        // output negative Integers like this to match z3 output
+        printResult(result);
+    }
+
+    private static void printResult(long result) {
         if (result < 0) {
+            // output negative Integers like this to match z3 output
             System.out.println("(- " + result * -1 + ")");
         } else {
-            System.out.println(evaluator.getResult());
+            System.out.println(result);
         }
+
     }
 }
 
 public class Main {
     // expects file as input, if no file given, fuzzes 10 formula to fuzz.txt and evaluates them
     public static void main(String[] args) {
-        String filename;
-        if (args.length == 0) {
-            SmtFileHandler.createFuzzFile(10, "fuzz.txt");
-            filename = "fuzz.txt";
-        } else {
-            filename = args[0];
-        }
+        String filename = extractOrCreateFile(args);
         List<String> lines = SmtFileHandler.readSmtFileByLine(filename);
         for (String line : lines) {
             SmtSolver.solve(line);
+        }
+    }
+
+    private static String extractOrCreateFile(String[] args) {
+        if (args.length == 0) {
+            SmtFileHandler.createFuzzFile(10, "fuzz.txt");
+            return "fuzz.txt";
+        } else {
+            return args[0];
         }
     }
 }
