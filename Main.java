@@ -58,10 +58,17 @@ class SmtLispLexer {
             char c = mInput.charAt(i);
             if (c == ' ' || c == '\t') {
                 continue;
-            } else if (c == '+' || c == '-' || c == '*') {
-                createBinaryOperatorToken(c);
             } else if (c == '(' || c == ')') {
                 createParenthesesToken(c);
+            } else if (c == '+' || c == '*') {
+                createBinaryOperatorToken(c);
+            } else if (c == '-' ) {
+                if (i == 0 || mInput.charAt(i - 1) == '(') {
+                    createBinaryOperatorToken(c);
+                } else {
+                    mLookAhead = i + 1;
+                    createNumberToken(c);
+                }
             } else if (Character.isDigit(c)) {
                 mLookAhead = i + 1;
                 createNumberToken(c);
