@@ -189,6 +189,8 @@ class NumberExpression implements Expression {
     }
 }
 
+// Iterates over (ordered) list of SmtTokens and
+// creates Abstract Syntax Tree using Expression
 class SmtLispParser {
     private final List<SmtToken> mTokens;
     private int mTokenIndex = 0;
