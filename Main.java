@@ -15,8 +15,8 @@ class SmtToken {
     private final String mValue;
 
     public SmtToken(TokenType type, String value) {
-        this.mType = type;
-        this.mValue = value;
+        mType = type;
+        mValue = value;
     }
 
     public TokenType getType() {
@@ -40,7 +40,7 @@ class SmtLispLexer {
     private int mLookAhead = 0;
 
     public SmtLispLexer(String args) {
-        this.mInput = args;
+        mInput = args;
         lex();
     }
 
@@ -62,7 +62,7 @@ class SmtLispLexer {
                 createParenthesesToken(c);
             } else if (c == '+' || c == '*') {
                 createBinaryOperatorToken(c);
-            } else if (c == '-' ) {
+            } else if (c == '-') {
                 if (i == 0 || mInput.charAt(i - 1) == '(') {
                     createBinaryOperatorToken(c);
                 } else {
@@ -111,70 +111,127 @@ class SmtLispLexer {
     }
 }
 
-// Node used for AST of Parser. Hardcoded to have 2 children (for now)
-class AbstractSyntaxNodeBinary {
-    private final SmtToken mToken;
-    private final AbstractSyntaxNodeBinary mLeft;
-    private final AbstractSyntaxNodeBinary mRight;
+/*
+ * Used to build abstract syntax tree, Interpreter pattern
+ */
+interface Expression {
+    long interpret();
+}
 
-    public AbstractSyntaxNodeBinary(SmtToken token, AbstractSyntaxNodeBinary mLeft, AbstractSyntaxNodeBinary mRight) {
-        this.mToken = token;
-        this.mLeft = mLeft;
-        this.mRight = mRight;
-    }
+class SimplifyExpression implements Expression {
+    private final Expression mExpression;
 
-    public SmtToken getToken() {
-        return mToken;
-    }
-
-    public AbstractSyntaxNodeBinary getLeft() {
-        return mLeft;
-    }
-
-    public AbstractSyntaxNodeBinary getRight() {
-        return mRight;
+    SimplifyExpression(Expression Expression) {
+        mExpression = Expression;
     }
 
     @Override
-    public String toString() {
-        if (mToken.getType().equals(TokenType.NUMBER)) {
-            return String.format("%s", mToken);
-        } else if (mToken.getType().equals(TokenType.UNARYKEYWORD)) {
-            return String.format("%s (%s)", mToken, mLeft.toString());
-        } else {
-            return String.format("%s (%s, %s)", mToken, mLeft.toString(), mRight.toString());
-        }
+    public long interpret() {
+        return mExpression.interpret();
+    }
+}
+
+class AddExpression implements Expression {
+    private final Expression mExpressionLeft;
+    private final Expression mExpressionRight;
+
+    AddExpression(Expression ExpressionLeft, Expression ExpressionRight) {
+        mExpressionLeft = ExpressionLeft;
+        mExpressionRight = ExpressionRight;
+    }
+
+    @Override
+    public long interpret() {
+        return mExpressionLeft.interpret() + mExpressionRight.interpret();
+    }
+}
+
+class SubstractExpression implements Expression {
+    private final Expression mExpressionLeft;
+    private final Expression mExpressionRight;
+
+    SubstractExpression(Expression ExpressionLeft, Expression ExpressionRight) {
+        mExpressionLeft = ExpressionLeft;
+        mExpressionRight = ExpressionRight;
+    }
+
+    @Override
+    public long interpret() {
+        return mExpressionLeft.interpret() - mExpressionRight.interpret();
+    }
+}
+
+class MultiplicationExpression implements Expression {
+    private final Expression mExpressionLeft;
+    private final Expression mExpressionRight;
+
+    MultiplicationExpression(Expression ExpressionLeft, Expression ExpressionRight) {
+        mExpressionLeft = ExpressionLeft;
+        mExpressionRight = ExpressionRight;
+    }
+
+    @Override
+    public long interpret() {
+        return mExpressionLeft.interpret() * mExpressionRight.interpret();
+    }
+}
+
+class NumberExpression implements Expression {
+    private final String mValue;
+
+    NumberExpression(String Value) {
+        mValue = Value;
+    }
+
+    @Override
+    public long interpret() {
+        return Long.parseLong(mValue);
     }
 }
 
 class SmtLispParser {
     private final List<SmtToken> mTokens;
     private int mTokenIndex = 0;
-    private final AbstractSyntaxNodeBinary mRoot;
+    private final Expression mRoot;
 
     public SmtLispParser(List<SmtToken> tokens) {
-        this.mTokens = tokens;
-        this.mRoot = buildTree();
+        mTokens = tokens;
+        mRoot = createExpressionFromNextToken();
     }
 
-    public AbstractSyntaxNodeBinary getRoot() {
+    public Expression getRoot() {
         return mRoot;
     }
 
-    private AbstractSyntaxNodeBinary buildTree() {
+    private Expression createExpressionFromNextToken() {
         do {
             mTokenIndex++;
         } while (mTokens.get(mTokenIndex).getType() == TokenType.PARENTHESES);
 
-        AbstractSyntaxNodeBinary node;
-        if (mTokens.get(mTokenIndex).getType() == TokenType.BINARYOPERATOR) {
-            node = new AbstractSyntaxNodeBinary(mTokens.get(mTokenIndex), buildTree(), buildTree());
-        } else if (mTokens.get(mTokenIndex).getType() == TokenType.UNARYKEYWORD) {
-            node = new AbstractSyntaxNodeBinary(mTokens.get(mTokenIndex), buildTree(), null);
-        } else {
-            node = new AbstractSyntaxNodeBinary(mTokens.get(mTokenIndex), null, null);
+        TokenType tokenType = mTokens.get(mTokenIndex).getType();
+        String tokenValue = mTokens.get(mTokenIndex).getValue();
+        if (tokenType == TokenType.BINARYOPERATOR) {
+            switch (tokenValue) {
+                case ("+"):
+                    return (new AddExpression(createExpressionFromNextToken(), createExpressionFromNextToken()));
+                case ("-"):
+                    return (new SubstractExpression(createExpressionFromNextToken(), createExpressionFromNextToken()));
+                case ("*"):
+                    return (new MultiplicationExpression(createExpressionFromNextToken(), createExpressionFromNextToken()));
+                default:
+                    throw new IllegalStateException("Unexpected value: " + tokenValue);
+            }
+        } else if (tokenType == TokenType.UNARYKEYWORD) {
+            switch (tokenValue) {
+                case ("simplify"):
+                    return (new SimplifyExpression(createExpressionFromNextToken()));
+                default:
+                    throw new IllegalStateException("Unexpected value: " + tokenValue);
+            }
+        } else if (tokenType == TokenType.NUMBER) {
+            return (new NumberExpression(tokenValue));
         }
-        return node;
+        return null;
     }
 
     @Override
@@ -185,41 +242,14 @@ class SmtLispParser {
 
 // goes through given AST recursively, calculates (numerical) result
 class SmtLispEvaluator {
-    private long mResult = 0;
+    private final long mResult;
 
-    public SmtLispEvaluator(AbstractSyntaxNodeBinary root) {
-        mResult = evaluate(root);
+    public SmtLispEvaluator(Expression root) {
+        mResult = root.interpret();
     }
 
     public long getResult() {
         return mResult;
-    }
-
-    private long evaluate(AbstractSyntaxNodeBinary node) {
-        TokenType tokenType = node.getToken().getType();
-        if (tokenType == TokenType.UNARYKEYWORD) {
-            return evaluate(node.getLeft());
-        } else if (tokenType == TokenType.BINARYOPERATOR) {
-            return evaluateBinaryOperator(node);
-        } else if (tokenType == TokenType.NUMBER) {
-            return (Integer.parseInt(node.getToken().getValue()));
-        } else {
-            throw new UnsupportedOperationException("Unsupported token type: " + tokenType);
-        }
-    }
-
-    long evaluateBinaryOperator(AbstractSyntaxNodeBinary node) {
-        String tokenValue = node.getToken().getValue();
-        switch (tokenValue) {
-            case "+":
-                return evaluate(node.getLeft()) + evaluate(node.getRight());
-            case "-":
-                return evaluate(node.getLeft()) - evaluate(node.getRight());
-            case "*":
-                return evaluate(node.getLeft()) * evaluate(node.getRight());
-            default:
-                throw new UnsupportedOperationException("Unexpected binary operator: " + tokenValue);
-        }
     }
 }
 

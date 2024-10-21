@@ -23,14 +23,11 @@ public class SmtLispFuzzer {
     // pseudo random expression creation (Expression = (Operator, Expression, Expression) | Number)
     private String generateRandomExpression() {
         StringBuilder expression = new StringBuilder("(");
-        int rand = mRandom.nextInt();
-        // TODO: make more cleanly random
-        String operator = rand % 2 == 0 ? "+" : rand % 3 == 0 ? "-" : "*";
+        String operator = mRandom.nextBoolean() ? "+" : mRandom.nextBoolean() ? "-" : "*";
         expression.append(operator);
         for (int i = 0; i < 2; i++) {
-            rand = mRandom.nextInt();
-            // arbitrary choice of 3, 2 created too much expression nesting on average (debug readability)
-            if (rand % 3 == 0) {
+            // && because i dont want much nesting yet (can't handle bigNums yet)
+            if (mRandom.nextBoolean() && mRandom.nextBoolean()) {
                 expression.append(generateRandomExpression());
             } else {
                 expression.append(" ").append(generateRandomNumber());
@@ -40,7 +37,7 @@ public class SmtLispFuzzer {
     }
 
     private String generateRandomNumber() {
-        return (String.valueOf(mRandom.nextInt(10)));
+        return (String.valueOf(mRandom.nextInt(20) - 10));
     }
 
 }
