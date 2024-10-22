@@ -1,9 +1,13 @@
 -Compile Instructions:
 
 javac Main.java SmtListFuzzer.java
+or
+javac *.java
 
 -Run Instructions:
-(Running without input will create fuzz.txt file with 10 (adjustable) valid inputs and evaluate them.)
+
+-Without input:
+Will create fuzz.txt file with 10 (adjustable) valid inputs and evaluate them
 
 -With input file:
 java Main [inputFile]

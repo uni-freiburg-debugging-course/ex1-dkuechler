@@ -33,7 +33,9 @@ class SmtToken {
     }
 }
 
-// Creates SmtTokens from given Lisp style String
+/**
+ * Creates SmtTokens from given Lisp style String
+ */
 class SmtLispLexer {
     private final String mInput;
     private final List<SmtToken> mTokens = new ArrayList<>();
@@ -111,7 +113,7 @@ class SmtLispLexer {
     }
 }
 
-/*
+/**
  * Used to build abstract syntax tree, Interpreter pattern
  */
 interface Expression {
@@ -189,8 +191,10 @@ class NumberExpression implements Expression {
     }
 }
 
-// Iterates over (ordered) list of SmtTokens and
-// creates Abstract Syntax Tree using Expression
+/**
+ * Iterates over (ordered) list of SmtTokens and
+ * creates Abstract Syntax Tree using Expression
+ */
 class SmtLispParser {
     private final List<SmtToken> mTokens;
     private int mTokenIndex = 0;
@@ -242,7 +246,9 @@ class SmtLispParser {
     }
 }
 
-// goes through given AST recursively, calculates (numerical) result
+/**
+ * goes through given AST recursively, calculates (numerical) result
+ */
 class SmtLispEvaluator {
     private final long mResult;
 
@@ -255,7 +261,9 @@ class SmtLispEvaluator {
     }
 }
 
-// combines classes to algorithm
+/**
+ * Use classes to evaluate given Lisp-Smt-String, prints in z3 style
+ */
 final class SmtSolver {
     public static void solve(String input) {
         SmtLispLexer lexer = new SmtLispLexer(input);
