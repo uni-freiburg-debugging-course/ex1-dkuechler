@@ -77,6 +77,8 @@ class SmtLispLexer {
             } else if (Character.isLetter(c)) {
                 mLookAhead = i + 1;
                 createUnaryOperatorToken(c);
+            } else {
+                throw new IllegalArgumentException("Unsupported character: " + c);
             }
         }
     }
@@ -225,19 +227,19 @@ class SmtLispParser {
                 case ("*"):
                     return (new MultiplicationExpression(createExpressionFromNextToken(), createExpressionFromNextToken()));
                 default:
-                    throw new IllegalStateException("Unexpected value: " + tokenValue);
+                    throw new IllegalArgumentException("Unsupported binary operator: " + tokenValue);
             }
         } else if (tokenType == TokenType.UNARYKEYWORD) {
             switch (tokenValue) {
                 case ("simplify"):
                     return (new SimplifyExpression(createExpressionFromNextToken()));
                 default:
-                    throw new IllegalStateException("Unexpected value: " + tokenValue);
+                    throw new IllegalArgumentException("Unsupported keyword: " + tokenValue);
             }
         } else if (tokenType == TokenType.NUMBER) {
             return (new NumberExpression(tokenValue));
         }
-        return null;
+        throw new IllegalArgumentException("Unsupported tokentype: " + tokenType);
     }
 
     @Override
